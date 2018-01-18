@@ -90,7 +90,7 @@ public class MainFragment extends Fragment {
         mSocket.on("message", onNewMessage);
         mSocket.connect();
 
-        mSocket.emit("offset", sensor.getUpdatedOrientationAngles());
+        mSocket.emit("offset", sensor.getOffsetDegree());
         mHandler.postDelayed(mUpdateTask, 250);
     }
 
@@ -125,7 +125,7 @@ public class MainFragment extends Fragment {
     private Runnable mUpdateTask = new Runnable() {
         public void run() {
 
-            attemptUpdate(sensor.getUpdatedOrientationAngles());
+            attemptUpdate(sensor.getSensorJson());
             mHandler.postDelayed(this,  250);
 
         }
@@ -219,7 +219,7 @@ public class MainFragment extends Fragment {
         offsetButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mSocket.emit("offset", sensor.getUpdatedOrientationAngles());
+                mSocket.emit("offset", sensor.getSensorJson());
                 mHandler.postDelayed(mUpdateTask, 250);
             }
         });

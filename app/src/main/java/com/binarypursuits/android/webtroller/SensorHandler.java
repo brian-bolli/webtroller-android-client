@@ -1,45 +1,69 @@
 package com.binarypursuits.android.webtroller;
 
+import android.app.Activity;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Bundle;
 import android.util.Log;
+
+import com.binarypursuits.android.webtroller.sensors.AccelerometerHandler;
+import com.binarypursuits.android.webtroller.sensors.GameRotationVectorHandler;
+import com.binarypursuits.android.webtroller.sensors.LinearAccelerometerHandler;
+import com.binarypursuits.android.webtroller.sensors.MagneticFieldHandler;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class SensorHandler implements SensorEventListener {
+public class SensorHandler {
 
     private static final String TAG = "SensorHandler";
 
-    private float[] linear = new float[3];
-    private float[] orientation = new float[3];
+    private AccelerometerHandler accelerometer;
+    private LinearAccelerometerHandler linear;
+    private MagneticFieldHandler magnetic;
+    private GameRotationVectorHandler rotation;
 
     public SensorHandler(Context context) {
-        SensorManager manager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
 
-        Sensor mLinear = manager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-        manager.registerListener(this, mLinear, SensorManager.SENSOR_DELAY_GAME);
+        accelerometer = new AccelerometerHandler(context);
+        linear = new LinearAccelerometerHandler(context);
+        magnetic = new MagneticFieldHandler(context);
+        rotation = new GameRotationVectorHandler(context);
 
-        Sensor mOrientation = manager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
-        manager.registerListener(this, mOrientation, SensorManager.SENSOR_DELAY_GAME);
     }
 
-    public JSONObject getUpdatedOrientationAngles() {
+    private float[] calculateOrientation() {
+        float R[] = new float[9];
+        float outR[] = new float[9];
+        float I[] = new float[9];
+        float orientation[] = new float[3];
 
+        //  boolean success = SensorManager.getRotationMatrix(R, I, this.accelerometer.getValues(), this.magnetic.getValues());
+        boolean success = SensorManager.getRotationMatrix(R, I, this.accelerometer.getValues(), this.rotation.getValues());
+
+        if (success) {
+            SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_Y, SensorManager.AXIS_X, outR);
+            SensorManager.getOrientation(outR, orientation);
+        }
+
+        return orientation;
+    }
+
+    public float getOffsetDegree() {
+        float[] orientation = this.calculateOrientation();
+        return (float)(Math.toDegrees(orientation[0]) + 360) % 360;
+    }
+
+    public JSONObject getSensorJson() {
         JSONObject obj = new JSONObject();
 
         try {
-            Double degrees = (orientation[0] * 180) / Math.PI;
-            obj.put("x", degrees.floatValue());
 
-            degrees = (orientation[1] * 180) / Math.PI;
-            obj.put("y", degrees.floatValue());
-
-            degrees = (orientation[2] * 180) / Math.PI;
-            obj.put("z", degrees.floatValue());
+            obj.put("orientation", this.getOrientation());
+            obj.put("linear", this.linear.getJson());
 
         } catch (JSONException e) {
 
@@ -50,20 +74,15 @@ public class SensorHandler implements SensorEventListener {
         return obj;
     }
 
-    public JSONObject getUpdatedLinearAcceleration() {
-
+    private JSONObject getOrientation() {
         JSONObject obj = new JSONObject();
+        float[] orientation = this.calculateOrientation();
 
         try {
 
-            Double degrees = (linear[0] * 180) / Math.PI;
-            obj.put("x",  degrees.floatValue());
-
-            degrees = (linear[1] * 180) / Math.PI;
-            obj.put("y",  degrees.floatValue());
-
-            degrees = (linear[2] * 180) / Math.PI;
-            obj.put("z",  degrees.floatValue());
+            obj.put("z", orientation[0]);
+            obj.put("x",orientation[1]);
+            obj.put("y", orientation[2]);
 
         } catch (JSONException e) {
 
@@ -72,24 +91,7 @@ public class SensorHandler implements SensorEventListener {
         }
 
         return obj;
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) { }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-
-        switch (event.sensor.getType()) {
-            case Sensor.TYPE_LINEAR_ACCELERATION:
-                linear = event.values.clone();
-                break;
-            case Sensor.TYPE_GAME_ROTATION_VECTOR:
-                orientation = event.values.clone();
-                break;
-            default:
-                return;
-        }
 
     }
+
 }
